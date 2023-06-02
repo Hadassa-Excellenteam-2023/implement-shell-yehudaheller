@@ -8,14 +8,21 @@
 
 // Struct to hold information about a background process
 struct BackgroundProcess {
-    pid_t pid;
-    std::string command;
+    pid_t pid;             // Process ID
+    std::string command;   // Command string
 };
 
 // Function to execute a command
 void executeCommand(const std::string& command, bool runInBackground, std::vector<BackgroundProcess>& backgroundProcesses);
+
+// Function to split a string into tokens based on a delimiter
 std::vector<std::string> splitString(const std::string& input, char delimiter);
+
+// Function to display information about background processes
 void showBackgroundProcesses(const std::vector<BackgroundProcess>& backgroundProcesses);
+
+// Function to update and remove completed background processes
+void updateBackgroundProcesses(std::vector<BackgroundProcess>& backgroundProcesses);
 
 int main() {
     std::string input;
@@ -30,6 +37,7 @@ int main() {
         }
 
         if (input == "myjobs") {
+            updateBackgroundProcesses(backgroundProcesses);
             showBackgroundProcesses(backgroundProcesses);
             continue;
         }
@@ -47,14 +55,18 @@ int main() {
     return 0;
 }
 
+/**
+ * Executes a command either in the foreground or background.
+ * @param command The command to execute.
+ * @param runInBackground Boolean flag indicating whether the command should be executed in the background.
+ * @param backgroundProcesses A vector of background processes.
+ */
 void executeCommand(const std::string& command, bool runInBackground, std::vector<BackgroundProcess>& backgroundProcesses) {
     pid_t pid = fork();
     if (pid == -1) {
         std::cerr << "Failed to create child process" << std::endl;
         return;
-    } 
-    
-    else if (pid == 0) {
+    } else if (pid == 0) {
         // Child process
         std::vector<std::string> args = splitString(command, ' ');
 
@@ -88,6 +100,12 @@ void executeCommand(const std::string& command, bool runInBackground, std::vecto
     }
 }
 
+/**
+ * Splits a string into tokens based on a delimiter.
+ * @param input The input string to split.
+ * @param delimiter The delimiter character.
+ * @return A vector of tokens.
+ */
 std::vector<std::string> splitString(const std::string& input, char delimiter) {
     std::vector<std::string> tokens;
     std::string token;
@@ -98,9 +116,37 @@ std::vector<std::string> splitString(const std::string& input, char delimiter) {
     return tokens;
 }
 
+/**
+ * Displays information about background processes.
+ * @param backgroundProcesses A vector of background processes.
+ */
 void showBackgroundProcesses(const std::vector<BackgroundProcess>& backgroundProcesses) {
     std::cout << "Background processes:" << std::endl;
     for (const auto& process : backgroundProcesses) {
         std::cout << "PID: " << process.pid << ", Command: " << process.command << std::endl;
+    }
+}
+
+/**
+ * Updates and removes completed background processes.
+ * @param backgroundProcesses A vector of background processes.
+ */
+void updateBackgroundProcesses(std::vector<BackgroundProcess>& backgroundProcesses) {
+    // Check and remove completed background processes
+    for (auto it = backgroundProcesses.begin(); it != backgroundProcesses.end();) {
+        pid_t result = waitpid(it->pid, nullptr, WNOHANG);
+        if (result == -1) {
+            // Error occurred while waiting for the process
+            std::cerr << "Error occurred while waiting for process: " << it->command << std::endl;
+            it = backgroundProcesses.erase(it);
+        } else if (result == 0) {
+            // Process is still running, move to the next process
+            ++it;
+        } else {
+            // Process has completed
+            std::cout << "Background process completed: " << it->command << std::endl;
+            it = backgroundProcesses.erase(it);
+            continue;  // Skip the increment operation since we have already erased the element
+        }
     }
 }
